@@ -1,0 +1,74 @@
+services:
+  # ID : guacadmin mdp : guacadmin
+  bastion:
+    image: guacamole/guacamole
+    container_name: bastion
+    restart: always
+    ports:
+      - 8080:8080
+    environment:
+       MYSQL_HOSTNAME: 'guacamole_db'
+       MYSQL_DATABASE: 'guacamole_db'
+       MYSQL_USER: 'guacamole_user'
+       MYSQL_PASSWORD: 'password'
+       GUACD_HOSTNAME: guacd
+    depends_on:
+      - guacamole_db
+      - guacd
+    volumes:
+      - guacamole_vl:/etc/guacamole
+    networks:
+      my-ipvlan:
+        ipv4_address: 192.168.40.49
+
+  guacd:
+    image: guacamole/guacd
+    container_name: guacd
+    restart: always
+    networks:
+      my-ipvlan:
+        ipv4_address: 192.168.40.50
+
+
+  # Commande pour initialiser la base de donnée pour le bastion -> docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --mysql > ./initdb/initdb.sql
+  guacamole_db:
+    image: mariadb
+    container_name: guacamole_db
+    restart: always
+    environment:
+       MYSQL_DATABASE: 'guacamole_db'
+       MYSQL_USER: 'guacamole_user'
+       MYSQL_PASSWORD: 'password'
+       MYSQL_ROOT_PASSWORD: 'password'
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      my-ipvlan:
+        ipv4_address: 192.168.40.51
+
+  caddy:
+    image: caddy:latest
+    container_name: caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      my-ipvlan:
+        ipv4_address: 192.168.40.52
+
+volumes:
+  guacamole_vl:
+  mariadb_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  my-ipvlan:
+    external: true
+    name: "my-ipvlan"
